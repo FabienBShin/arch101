@@ -3,6 +3,7 @@ import { loadState, saveState, resetState, getSaveTimes, recordBackup, setWeekDo
 const main = document.querySelector('#main');
 let curriculum;
 let flushPendingSave = () => {};
+let fieldObservers = [];
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -28,7 +29,32 @@ function renderHome() {
   const weeks = curriculum.weeks;
   const completed = weeks.filter((week) => isComplete(week, state)).length;
   const current = weeks.find((week) => !isComplete(week, state)) ?? weeks.at(-1);
-  const intro = element('section', undefined, 'intro');
+  // Home-only presentation helpers; the stored checklist and completion rules stay shared.
+  const tasks = (week) => week.site
+    ? [['study', '공부'], ['assignment', '과제'], ['site', '답사']]
+    : [['study', '공부'], ['assignment', '과제']];
+  const checkedCount = (week) => tasks(week).filter(([key]) => state.weeks[week.n]?.done?.[key] === true).length;
+  function icon(kind) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.75');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const paths = kind === 'pin'
+      ? ['M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z', 'M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z']
+      : kind === 'check' ? ['m5 12 4 4L19 6'] : ['m9 5 7 7-7 7'];
+    for (const d of paths) {
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      svg.append(path);
+    }
+    return svg;
+  }
+  const intro = element('section', undefined, 'intro home-intro');
   intro.append(
     element('p', curriculum.subtitle, 'eyebrow'),
     element('h1', curriculum.title),
@@ -37,18 +63,36 @@ function renderHome() {
   );
 
   const resume = element('section', undefined, 'resume-section');
-  resume.setAttribute('aria-label', '이어하기');
+  resume.setAttribute('aria-labelledby', 'resume-heading');
+  const resumeLabel = element('p', completed === weeks.length ? '모든 주차 완료' : '이어하기', 'eyebrow');
+  const resumeNumber = element('p', undefined, 'resume-number');
+  resumeNumber.append(element('span', 'WEEK', 'week-label'),
+    element('span', String(current.n).padStart(2, '0'), 'resume-digits'));
+  const resumeHeading = element('h2', current.question);
+  resumeHeading.id = 'resume-heading';
+  const resumeBody = element('div', undefined, 'resume-body');
+  resumeBody.append(resumeLabel, resumeHeading);
+  const currentChecked = checkedCount(current);
+  const currentTotal = tasks(current).length;
+  const resumeStatus = element('p', `이번 주 진행 ${currentChecked}/${currentTotal}`, 'resume-status');
+  const resumeProgress = element('progress', undefined, 'resume-progress');
+  resumeProgress.max = currentTotal;
+  resumeProgress.value = currentChecked;
+  resumeProgress.setAttribute('aria-label', '이번 주 체크리스트 진행');
+  resumeBody.append(resumeStatus, resumeProgress);
   const shortcut = link(
-    completed === weeks.length ? '12주 완료 · 마지막 주 다시 보기' : `이어하기 · ${current.n}주차`,
+    completed === weeks.length ? '마지막 주 다시 보기' : '이어서 하기',
     `#/week/${current.n}`, 'button button-primary',
   );
-  resume.append(shortcut);
+  shortcut.append(icon('chevron'));
+  resume.append(resumeNumber, resumeBody, shortcut);
 
   const summary = element('section', undefined, 'progress-panel');
   summary.setAttribute('aria-labelledby', 'progress-heading');
-  const heading = element('h2', '나의 진행률');
+  const heading = element('h2', '전체 진행');
   heading.id = 'progress-heading';
-  const count = element('p', `${String(completed).padStart(2, '0')} / ${String(weeks.length).padStart(2, '0')}`, 'progress-count');
+  const count = element('p', `${completed}주 완료`, 'progress-count');
+  count.append(element('span', ` / ${weeks.length}주`, 'progress-total'));
   const progress = element('div', undefined, 'progress-segments');
   progress.setAttribute('role', 'progressbar');
   progress.setAttribute('aria-valuemin', '0');
@@ -68,30 +112,72 @@ function renderHome() {
   section.setAttribute('aria-labelledby', 'weeks-heading');
   const weeksHeading = element('h2', '12주 커리큘럼');
   weeksHeading.id = 'weeks-heading';
+  const filters = element('div', undefined, 'week-filters');
+  filters.setAttribute('role', 'group');
+  filters.setAttribute('aria-label', '주차 목록 필터');
   const list = element('ol', undefined, 'week-list');
+  const rows = [];
   for (const week of weeks) {
     const complete = isComplete(week, state);
     const item = element('li');
-    const row = link(undefined, `#/week/${week.n}`, complete ? 'week-link complete' : 'week-link');
+    const row = link(undefined, `#/week/${week.n}`,
+      `week-link${complete ? ' complete' : week === current ? ' current' : ''}`);
     const number = element('span', undefined, 'week-number');
     number.append(element('span', 'WEEK', 'week-label'),
       element('span', String(week.n).padStart(2, '0'), 'week-digits'));
-    const status = element('span', complete ? '완료' : '미완료', 'visually-hidden');
     if (complete) {
       const check = element('span', undefined, 'completion-mark');
-      check.setAttribute('aria-hidden', 'true');
+      check.append(icon('check'));
       number.append(check);
     }
-    row.append(
-      number,
-      element('span', week.question, 'week-question'),
-      status,
-    );
+    const content = element('span', undefined, 'week-content');
+    content.append(element('span', week.question, 'week-question'),
+      element('span', week.study, 'week-preview'));
+    const metadata = element('span', undefined, 'week-metadata');
+    for (const [key, title] of tasks(week)) {
+      const done = state.weeks[week.n]?.done?.[key] === true;
+      const chip = element('span', title, `week-chip${done ? ' done' : ''}`);
+      if (done) chip.append(element('span', ' 완료', 'visually-hidden'));
+      metadata.append(chip);
+    }
+    metadata.append(element('span', `체크 ${checkedCount(week)}/${tasks(week).length}`, 'week-mini-progress'));
+    content.append(metadata);
+    if (week.site) {
+      const place = element('span', undefined, 'week-place');
+      place.append(icon('pin'), element('span', week.site));
+      content.append(place);
+    }
+    const chevron = icon('chevron');
+    chevron.classList.add('week-chevron');
+    row.append(number, content, chevron,
+      element('span', complete ? '완료한 주' : week === current ? '현재 주' : '남은 주', 'visually-hidden'));
     item.append(row);
     list.append(item);
+    rows.push({ item, complete });
   }
-  section.append(weeksHeading, list);
-  main.append(resume, intro, summary, section);
+  const empty = element('p', '', 'home-empty');
+  empty.hidden = true;
+  const filterStatus = element('p', '', 'visually-hidden');
+  filterStatus.setAttribute('role', 'status');
+  for (const [value, label] of [['all', '전체'], ['remaining', '남은 주'], ['complete', '완료']]) {
+    const control = element('button', label);
+    control.type = 'button';
+    control.setAttribute('aria-pressed', String(value === 'all'));
+    control.addEventListener('click', () => {
+      for (const other of filters.children) other.setAttribute('aria-pressed', String(other === control));
+      let visible = 0;
+      for (const { item, complete } of rows) {
+        item.hidden = value === 'remaining' ? complete : value === 'complete' ? !complete : false;
+        if (!item.hidden) visible++;
+      }
+      empty.hidden = visible !== 0;
+      empty.textContent = value === 'complete' ? '아직 완료한 주가 없습니다.' : '모든 주차를 완료했습니다.';
+      filterStatus.textContent = `${label} · ${visible}개 주차`;
+    });
+    filters.append(control);
+  }
+  section.append(weeksHeading, filters, filterStatus, list, empty);
+  main.append(intro, resume, summary, section);
 }
 
 function renderWeek(week) {
@@ -152,6 +238,54 @@ function renderWeek(week) {
   const fields = element('div', undefined, 'card-fields');
   const contentStatus = element('p', '', 'muted save-message');
   contentStatus.setAttribute('role', 'status');
+  const observationHeader = element('div', undefined, 'observation-header');
+  const progressText = element('span', undefined, 'observation-count');
+  const progress = element('progress', undefined, 'observation-progress');
+  progress.max = curriculum.cardFields.length;
+  progress.setAttribute('aria-label', '관찰 카드 작성 진행');
+  observationHeader.append(observationHeading, contentStatus, progressText, progress);
+  const cardInputs = [];
+  function updateProgress() {
+    const count = cardInputs.filter((input) => input.value.trim()).length;
+    progressText.textContent = `${count}/${progress.max} 작성`;
+    progress.value = count;
+  }
+  function prepareField(label, input, title, hint, id) {
+    const fieldHeader = element('span', undefined, 'field-header');
+    const fieldTitle = element('span', title, 'field-title');
+    const dot = element('span', undefined, 'field-dot');
+    dot.setAttribute('aria-hidden', 'true');
+    fieldTitle.append(dot);
+    const help = element('span', hint, 'field-hint');
+    help.id = `${id}-hint`;
+    input.id = id;
+    input.setAttribute('aria-describedby', help.id);
+    input.setAttribute('enterkeyhint', 'next');
+    label.htmlFor = id;
+    fieldHeader.append(fieldTitle, help);
+    label.append(fieldHeader, input);
+    function updateAppearance() {
+      label.classList.toggle('has-content', Boolean(input.value.trim()));
+      const style = getComputedStyle(input);
+      const inset = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+        + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+      const maximum = parseFloat(style.lineHeight) * 8 + inset;
+      input.style.height = 'auto';
+      input.style.height = `${Math.min(maximum, Math.max(56, input.scrollHeight + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)))}px`;
+      input.style.overflowY = input.scrollHeight > input.clientHeight ? 'auto' : 'hidden';
+    }
+    input.addEventListener('input', updateAppearance);
+    // Observe width changes too, so restored text fits at phone and iPad widths.
+    let previousWidth;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width === previousWidth) return;
+      previousWidth = entry.contentRect.width;
+      updateAppearance();
+    });
+    observer.observe(label);
+    fieldObservers.push(observer);
+    label.classList.toggle('has-content', Boolean(input.value.trim()));
+  }
   let timer;
   let pendingCard = {};
   let pendingNotes;
@@ -171,34 +305,38 @@ function renderWeek(week) {
     contentStatus.textContent = '저장 대기 중…';
     timer = setTimeout(saveContent, 400);
   }
-  for (const field of curriculum.cardFields) {
+  for (const field of [...curriculum.cardFields.filter((field) => field.key !== 'sentence'),
+    ...curriculum.cardFields.filter((field) => field.key === 'sentence')]) {
     const label = element('label', undefined,
       field.key === 'sentence' ? 'card-field sentence-field' : 'card-field');
     const input = element('textarea');
     input.name = field.key;
-    input.rows = 2;
-    input.placeholder = field.hint;
+    input.rows = 1;
+    input.placeholder = field.key === 'sentence' ? field.hint : '탭해서 입력';
     input.value = typeof state.weeks[week.n]?.card?.[field.key] === 'string'
       ? state.weeks[week.n].card[field.key] : '';
+    cardInputs.push(input);
     input.addEventListener('input', () => {
       pendingCard[field.key] = input.value;
       scheduleSave();
     });
-    label.append(element('span', field.label), input);
+    input.addEventListener('input', updateProgress);
+    prepareField(label, input, field.label, field.hint, `card-${field.key}`);
     fields.append(label);
   }
   const notesLabel = element('label', undefined, 'card-field notes-field');
   const notes = element('textarea');
   notes.name = 'notes';
-  notes.rows = 5;
+  notes.rows = 1;
   notes.value = typeof state.weeks[week.n]?.notes === 'string' ? state.weeks[week.n].notes : '';
   notes.addEventListener('input', () => {
     pendingNotes = notes.value;
     scheduleSave();
   });
-  notes.placeholder = '답사와 공부에서 떠오른 생각을 적어 주세요.';
-  notesLabel.append(element('span', '자유 메모'), notes);
-  observation.append(observationHeading, fields, notesLabel, contentStatus);
+  notes.placeholder = '탭해서 입력';
+  prepareField(notesLabel, notes, '자유 메모', '답사와 공부에서 떠오른 생각을 적어 주세요.', 'week-notes');
+  updateProgress();
+  observation.append(observationHeader, fields, notesLabel);
 
   const navigation = element('nav', undefined, 'week-navigation');
   navigation.setAttribute('aria-label', '주차 이동');
@@ -483,6 +621,8 @@ function renderRoute(focus = false) {
   if (!curriculum) return;
   flushPendingSave();
   flushPendingSave = () => {};
+  for (const observer of fieldObservers) observer.disconnect();
+  fieldObservers = [];
   main.replaceChildren();
   const hash = window.location.hash || '#/';
   let active = 'home';

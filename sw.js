@@ -1,6 +1,6 @@
 // 앱 셸이나 커리큘럼을 변경하면 버전을 올려 새 캐시를 설치합니다.
 const CACHE_PREFIX = 'arch101-';
-const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const APP_SHELL = [
   './',
   './index.html',
