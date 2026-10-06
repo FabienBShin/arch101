@@ -55,7 +55,39 @@
 }
 
 * { box-sizing: border-box; }
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
 body { margin: 0; }
+
+/* Let nested grid/flex items shrink below their text's intrinsic width. */
+:where(
+  .site-header, main, .tab-bar-inner, .tab-bar a, .brand, .button,
+  .resume-section, .resume-number, .resume-body, .progress-panel, .progress-segments,
+  .week-filters, .week-list, .week-link, .week-number, .completion-mark,
+  .week-content, .week-metadata, .week-place, .panel, .checklist, .checklist-item,
+  .checklist-content, .week-navigation, .card-fields, .card-field, .info-list,
+  .week-detail-header, .week-detail-number, .observation-header, .field-header,
+  .field-title
+),
+:where(
+  .tab-bar-inner, .tab-bar a, .brand, .button, .resume-section, .resume-number, .progress-panel,
+  .progress-segments, .week-filters, .week-list, .week-link, .week-number,
+  .completion-mark, .week-content, .week-metadata, .week-place, .checklist,
+  .checklist-item, .checklist-content, .week-navigation, .card-fields, .card-field,
+  .info-list, .week-detail-header, .week-detail-number, .observation-header,
+  .field-header, .field-title
+) > * { min-width: 0; }
+
+:where(
+  .resume-number, .week-list, .week-number, .completion-mark, .week-content,
+  .checklist, .checklist-content, .card-field, .info-list, .week-detail-number
+) { grid-template-columns: minmax(0, 1fr); }
+
+:where(.intro, .resume-body, .progress-panel, .panel, .week-detail-header,
+  .week-filters, .field-title, .button) { overflow-wrap: anywhere; }
 a { color: var(--accent-ink); text-underline-offset: var(--space-1); }
 button, input, textarea { font: inherit; color: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
@@ -149,6 +181,7 @@ p { margin-bottom: var(--space-3); }
   justify-content: center;
   gap: var(--space-2);
   min-height: 48px;
+  max-width: 100%;
   padding: var(--space-3) var(--space-6);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -180,6 +213,7 @@ p { margin-bottom: var(--space-3); }
 }
 .resume-number { display: grid; align-content: start; gap: var(--space-2); margin: 0; }
 .resume-digits {
+  white-space: nowrap;
   font-family: var(--font-display);
   font-size: 64px;
   font-variant-numeric: tabular-nums;
@@ -196,7 +230,7 @@ p { margin-bottom: var(--space-3); }
 .resume-progress::-moz-progress-bar { background: var(--accent); border-radius: var(--r-sm); }
 .resume-section .button { grid-column: 1 / -1; width: 100%; font-weight: 600; }
 .resume-section .button svg { width: 18px; height: 18px; }
-.progress-panel { display: grid; grid-template-columns: 1fr auto; gap: var(--space-3); padding: var(--space-4); border-radius: var(--r-md); background: var(--surface-2); }
+.progress-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto); gap: var(--space-3); padding: var(--space-4); border-radius: var(--r-md); background: var(--surface-2); }
 .progress-panel h2 { margin: 0; align-self: center; letter-spacing: 0; font-weight: 500; }
 .progress-count { margin: 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .progress-total { font-size: 13px; color: var(--muted); font-weight: 400; }
@@ -226,23 +260,22 @@ p { margin-bottom: var(--space-3); }
 .week-link:hover { border-color: var(--muted); }
 .week-number { position: relative; display: grid; justify-items: center; align-content: center; gap: var(--space-1); min-height: 64px; border: 1px solid var(--card-border); border-radius: var(--r-md); background: var(--surface-2); }
 .week-number .week-label { font-size: 9px; letter-spacing: .08em; font-weight: 500; }
-.week-digits { font-family: var(--font-display); font-size: 32px; font-weight: 400; font-variant-numeric: tabular-nums; line-height: 1; }
+.week-digits { white-space: nowrap; font-family: var(--font-display); font-size: 32px; font-weight: 400; font-variant-numeric: tabular-nums; line-height: 1; }
 .week-link.current .week-number { border-color: var(--accent); color: var(--accent-ink); }
 .week-link.complete .week-number { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .week-link.complete .week-label { color: var(--on-accent); }
 .completion-mark { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 20px; height: 20px; border: 2px solid var(--surface); border-radius: 50%; background: var(--accent); color: var(--on-accent); }
 .completion-mark svg { width: 14px; height: 14px; }
 .week-content { display: grid; gap: var(--space-2); min-width: 0; }
-.week-question, .week-preview { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.week-question, .week-preview, .week-mini-progress, .week-place > span { min-width: 0; max-width: 100%; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .week-question { font-size: 16px; line-height: 1.5; font-weight: 600; }
 .week-preview { font-size: 13px; color: var(--muted); }
 .week-metadata { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
-.week-chip { padding: 2px 8px; border: 1px solid var(--card-border); border-radius: var(--r-sm); background: var(--surface-2); font-size: 11px; line-height: 1.6; color: var(--muted); }
+.week-chip { max-width: 100%; overflow-wrap: anywhere; padding: 2px 8px; border: 1px solid var(--card-border); border-radius: var(--r-sm); background: var(--surface-2); font-size: 11px; line-height: 1.6; color: var(--muted); }
 .week-chip.done { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .week-mini-progress { margin-left: auto; padding-left: var(--space-1); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .week-place { display: flex; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; width: fit-content; padding: 2px 8px; border: 1px solid var(--card-border); border-radius: var(--r-sm); background: var(--surface-2); color: var(--muted); font-size: 11px; }
 .week-place svg { flex: 0 0 14px; width: 14px; height: 14px; }
-.week-place > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .week-chevron { width: 16px; height: 16px; color: var(--muted); }
 .home-empty { padding: var(--space-6); border: 1px solid var(--card-border); border-radius: var(--r-md); background: var(--surface); color: var(--muted); text-align: center; }
 
@@ -283,7 +316,7 @@ p { margin-bottom: var(--space-3); }
 .notes-field { margin-top: var(--space-6); }
 .info-list { display: grid; gap: var(--space-4); margin: 0; padding-left: var(--space-6); overflow-wrap: anywhere; }
 .info-list strong { display: block; }
-.info-list a { display: inline-block; min-height: 44px; padding-block: var(--space-2); }
+.info-list a { display: inline-block; max-width: 100%; min-height: 44px; padding-block: var(--space-2); }
 .verdict-panel { min-width: 0; margin-inline: 0; }
 .verdict-panel legend { padding-inline: var(--space-2); font-size: 17px; font-weight: 600; }
 .verdict-panel .checklist { margin-top: 0; }
@@ -302,7 +335,7 @@ noscript { display: block; padding: var(--page-gutter); margin-bottom: calc(var(
 .tab-bar a[aria-current="page"]::after { border-radius: var(--r-sm); bottom: 6px; }
 .week-detail-header {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   column-gap: var(--space-6);
   align-items: start;
   padding: var(--space-6);
@@ -312,7 +345,7 @@ noscript { display: block; padding: var(--page-gutter); margin-bottom: calc(var(
   box-shadow: var(--shadow);
 }
 .week-detail-number { display: grid; gap: var(--space-2); grid-row: 1 / 3; margin: 0; }
-.week-detail-digits { font-family: var(--font-display); font-size: 88px; font-weight: 400; font-variant-numeric: tabular-nums; line-height: 1; color: var(--accent-ink); }
+.week-detail-digits { white-space: nowrap; font-family: var(--font-display); font-size: clamp(48px, 15vw, 72px); font-weight: 400; font-variant-numeric: tabular-nums; line-height: 1; color: var(--accent-ink); }
 .week-detail-header .eyebrow { margin-bottom: var(--space-3); }
 .week-detail-header h1 { margin-bottom: 0; }
 .week-checklist-panel h2, .week-observation h2 { font-size: 17px; font-weight: 600; }
@@ -331,7 +364,7 @@ noscript { display: block; padding: var(--page-gutter); margin-bottom: calc(var(
   top: max(var(--space-2), env(safe-area-inset-top));
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
   gap: var(--space-2) var(--space-4);
   margin-bottom: var(--space-4);
   padding: var(--space-4);
@@ -395,7 +428,7 @@ noscript { display: block; padding: var(--page-gutter); margin-bottom: calc(var(
 .settings-section + .panel.settings-section { margin-top: var(--space-4); }
 .settings-section .card-field { margin-top: var(--space-6); }
 .settings-section .card-field > span { font-size: 14px; font-weight: 600; }
-.settings-section input[type="file"] { padding: var(--space-2); border: 1px solid var(--card-border); border-radius: var(--r-md); background: var(--surface-2); overflow: hidden; }
+.settings-section input[type="file"] { min-width: 0; max-width: 100%; padding: var(--space-2); border: 1px solid var(--card-border); border-radius: var(--r-md); background: var(--surface-2); overflow: hidden; }
 .settings-section input[type="file"]::file-selector-button { min-height: 48px; margin-right: var(--space-3); padding: var(--space-2) var(--space-4); border: 1px solid var(--card-border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
 .settings-section input[type="file"]::file-selector-button:hover { border-color: var(--text); }
 .settings-section .button { background: var(--surface-2); }
@@ -413,16 +446,20 @@ main > [role="status"], main > [role="alert"] { overflow-wrap: anywhere; }
   .panel.editorial-section { padding: var(--space-4); }
   .settings-section .button { width: 100%; }
   .share-button { margin: var(--space-2) 0 0; }
-  .resume-section { padding: var(--space-4); column-gap: var(--space-4); }
+  .resume-section { grid-template-columns: auto minmax(0, 1fr); padding: var(--space-4); column-gap: var(--space-4); }
+  .resume-digits { font-size: clamp(48px, 15vw, 64px); }
   .week-link { grid-template-columns: 48px minmax(0, 1fr) 12px; gap: var(--space-2); }
   .week-digits { font-size: 28px; }
   .week-chevron { width: 12px; }
   .panel { padding: var(--space-4); }
   .card-fields { grid-template-columns: minmax(0, 1fr); }
-  .week-detail-header { grid-template-columns: 72px minmax(0, 1fr); column-gap: var(--space-4); padding: var(--space-4); }
-  .week-detail-digits { font-size: 72px; }
+  .week-detail-header { column-gap: var(--space-4); padding: var(--space-4); }
   .week-detail-header h1 { font-size: 26px; }
   .week-observation { padding: 0; }
+}
+@media (max-width: 360px) {
+  .week-detail-header, .resume-section { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-4); }
+  .week-detail-number { grid-row: auto; }
 }
 @keyframes screen-enter { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
