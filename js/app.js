@@ -36,20 +36,33 @@ function renderHome() {
     element('p', curriculum.pace, 'muted'),
   );
 
-  const summary = element('section', undefined, 'panel progress-panel');
+  const resume = element('section', undefined, 'resume-section');
+  resume.setAttribute('aria-label', '이어하기');
+  const shortcut = link(
+    completed === weeks.length ? '12주 완료 · 마지막 주 다시 보기' : `이어하기 · ${current.n}주차`,
+    `#/week/${current.n}`, 'button button-primary',
+  );
+  resume.append(shortcut);
+
+  const summary = element('section', undefined, 'progress-panel');
   summary.setAttribute('aria-labelledby', 'progress-heading');
   const heading = element('h2', '나의 진행률');
   heading.id = 'progress-heading';
-  const count = element('p', `${completed} / ${weeks.length}주 완료`, 'progress-count');
-  const progress = element('progress');
-  progress.max = weeks.length;
-  progress.value = completed;
+  const count = element('p', `${String(completed).padStart(2, '0')} / ${String(weeks.length).padStart(2, '0')}`, 'progress-count');
+  const progress = element('div', undefined, 'progress-segments');
+  progress.setAttribute('role', 'progressbar');
+  progress.setAttribute('aria-valuemin', '0');
+  progress.setAttribute('aria-valuemax', String(weeks.length));
+  progress.setAttribute('aria-valuenow', String(completed));
+  progress.setAttribute('aria-valuetext', `${weeks.length}주 중 ${completed}주 완료`);
   progress.setAttribute('aria-label', '완료한 주차');
-  const shortcut = link(
-    completed === weeks.length ? '12주 완료 · 마지막 주 다시 보기' : `현재 ${current.n}주차 바로가기`,
-    `#/week/${current.n}`, 'button',
-  );
-  summary.append(heading, count, progress, shortcut);
+  for (const week of weeks) {
+    const segment = element('span', undefined,
+      isComplete(week, state) ? 'progress-segment complete' : 'progress-segment');
+    segment.setAttribute('aria-hidden', 'true');
+    progress.append(segment);
+  }
+  summary.append(heading, count, progress);
 
   const section = element('section', undefined, 'weeks-section');
   section.setAttribute('aria-labelledby', 'weeks-heading');
@@ -59,28 +72,41 @@ function renderHome() {
   for (const week of weeks) {
     const complete = isComplete(week, state);
     const item = element('li');
-    const row = link(undefined, `#/week/${week.n}`, 'week-link');
+    const row = link(undefined, `#/week/${week.n}`, complete ? 'week-link complete' : 'week-link');
+    const number = element('span', undefined, 'week-number');
+    number.append(element('span', 'WEEK', 'week-label'),
+      element('span', String(week.n).padStart(2, '0'), 'week-digits'));
+    const status = element('span', complete ? '완료' : '미완료', 'visually-hidden');
+    if (complete) {
+      const check = element('span', undefined, 'completion-mark');
+      check.setAttribute('aria-hidden', 'true');
+      number.append(check);
+    }
     row.append(
-      element('span', `${week.n}주차`, 'week-number'),
+      number,
       element('span', week.question, 'week-question'),
-      element('span', complete ? '완료' : '미완료', complete ? 'badge complete' : 'badge'),
+      status,
     );
     item.append(row);
     list.append(item);
   }
   section.append(weeksHeading, list);
-  main.append(intro, summary, section);
+  main.append(resume, intro, summary, section);
 }
 
 function renderWeek(week) {
   const state = loadState();
-  const intro = element('section', undefined, 'intro');
+  const intro = element('section', undefined, 'intro week-detail-header');
+  const number = element('p', undefined, 'week-detail-number');
+  number.append(element('span', 'WEEK', 'week-label'),
+    element('span', String(week.n).padStart(2, '0'), 'week-detail-digits'));
   intro.append(
+    number,
     element('p', `${week.n}주차 · 이번 주 질문`, 'eyebrow'),
     element('h1', week.question),
   );
 
-  const section = element('section', undefined, 'panel');
+  const section = element('section', undefined, 'panel week-checklist-panel');
   section.setAttribute('aria-labelledby', 'checklist-heading');
   const heading = element('h2', '이번 주 체크리스트');
   heading.id = 'checklist-heading';
@@ -119,7 +145,7 @@ function renderWeek(week) {
   }
   section.append(heading, status, list, saveMessage);
 
-  const observation = element('section', undefined, 'panel observation-panel');
+  const observation = element('section', undefined, 'panel observation-panel week-observation');
   observation.setAttribute('aria-labelledby', 'observation-heading');
   const observationHeading = element('h2', '관찰 카드');
   observationHeading.id = 'observation-heading';
@@ -170,6 +196,7 @@ function renderWeek(week) {
     pendingNotes = notes.value;
     scheduleSave();
   });
+  notes.placeholder = '답사와 공부에서 떠오른 생각을 적어 주세요.';
   notesLabel.append(element('span', '자유 메모'), notes);
   observation.append(observationHeading, fields, notesLabel, contentStatus);
 
@@ -186,11 +213,12 @@ function renderWeek(week) {
 
 function renderInfo() {
   const state = loadState();
-  const intro = element('section', undefined, 'intro');
-  intro.append(element('h1', '정보'), element('h2', '학기 목표'),
+  const intro = element('section', undefined, 'intro editorial-intro');
+  intro.append(element('p', 'REFERENCE', 'eyebrow'), element('h1', '정보'),
+    element('p', '01 / GOAL', 'eyebrow'), element('h2', '학기 목표'),
     element('p', curriculum.goal, 'description'), element('p', curriculum.pace, 'muted'));
 
-  const textbooks = element('section', undefined, 'panel info-panel');
+  const textbooks = element('section', undefined, 'panel info-panel editorial-section');
   const bookList = element('ul', undefined, 'info-list');
   for (const book of curriculum.textbooks) {
     const item = element('li');
@@ -205,15 +233,20 @@ function renderInfo() {
     }
     bookList.append(item);
   }
-  textbooks.append(element('h2', '교재 목록'), bookList);
+  textbooks.append(element('p', '02 / READING', 'eyebrow'), element('h2', '교재 목록'), bookList);
+  if (!curriculum.textbooks.length) textbooks.append(element('p', '등록된 교재가 없습니다.', 'empty-state'));
 
-  const sites = element('section', undefined, 'panel info-panel');
+  const sites = element('section', undefined, 'panel info-panel editorial-section');
   const siteList = element('ul', undefined, 'info-list');
   for (const site of curriculum.extraSites) siteList.append(element('li', site));
-  sites.append(element('h2', '추가 답사지'), siteList);
+  sites.append(element('p', '03 / FIELDWORK', 'eyebrow'), element('h2', '추가 답사지'), siteList);
+  if (!curriculum.extraSites.length) sites.append(element('p', '등록된 답사지가 없습니다.', 'empty-state'));
 
-  const verdict = element('fieldset', undefined, 'panel verdict-panel');
-  verdict.append(element('legend', '12주 후 진로 판정표'));
+  const verdict = element('fieldset', undefined, 'panel verdict-panel editorial-section');
+  const verdictHeading = element('legend');
+  verdictHeading.append(element('span', '04 / NEXT STEP', 'eyebrow'),
+    element('span', '12주 후 진로 판정표', 'section-title'));
+  verdict.append(verdictHeading);
   const verdictList = element('div', undefined, 'checklist');
   const saveMessage = element('p', '', 'muted save-message');
   saveMessage.setAttribute('role', 'status');
@@ -236,6 +269,7 @@ function renderInfo() {
     verdictList.append(label);
   }
   verdict.append(verdictList, saveMessage);
+  if (!curriculum.verdict.length) verdict.append(element('p', '등록된 진로 항목이 없습니다.', 'empty-state'));
   main.append(intro, textbooks, sites, verdict);
 }
 
@@ -321,7 +355,7 @@ function backupFile() {
 }
 
 function renderSettings(main, cardFields) {
-  const intro = element('section', undefined, 'intro');
+  const intro = element('section', undefined, 'intro editorial-intro');
   const times = element('p', '', 'muted');
   function updateTimes() {
     const metadata = getSaveTimes();
@@ -330,12 +364,12 @@ function renderSettings(main, cardFields) {
     times.textContent = `마지막 백업: ${format(metadata.backedUpAt)} · 마지막 저장: ${format(metadata.savedAt)}`;
   }
   updateTimes();
-  intro.append(element('h1', '설정'), times);
+  intro.append(element('p', 'PREFERENCES', 'eyebrow'), element('h1', '설정'), times);
   const status = element('p', '', 'muted save-message');
   status.setAttribute('role', 'status');
   status.style.overflowWrap = 'anywhere';
 
-  const exporting = element('section', undefined, 'panel');
+  const exporting = element('section', undefined, 'panel editorial-section settings-section');
   const download = button('JSON 내보내기');
   download.addEventListener('click', () => {
     let url;
@@ -356,12 +390,12 @@ function renderSettings(main, cardFields) {
       if (url) setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
   });
-  exporting.append(element('h2', 'JSON 내보내기'), download);
+  exporting.append(element('p', '01 / EXPORT', 'eyebrow'), element('h2', 'JSON 내보내기'), download);
   try {
     const probe = new File(['{}'], 'arch101-backup.json', { type: 'application/json' });
     if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [probe] })) {
       const share = button('백업 파일 공유');
-      share.style.margin = '8px';
+      share.className = 'button share-button';
       share.addEventListener('click', async () => {
         share.disabled = true;
         try {
@@ -385,7 +419,7 @@ function renderSettings(main, cardFields) {
     // File sharing is optional; Blob download remains available.
   }
 
-  const importing = element('section', undefined, 'panel info-panel');
+  const importing = element('section', undefined, 'panel info-panel editorial-section settings-section');
   const label = element('label', undefined, 'card-field');
   const input = element('input');
   input.type = 'file';
@@ -395,6 +429,7 @@ function renderSettings(main, cardFields) {
   input.style.minWidth = '0';
   label.append(element('span', '가져올 JSON 파일'), input);
   const reset = button('전체 초기화');
+  reset.className = 'button button-danger';
   input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
@@ -422,11 +457,11 @@ function renderSettings(main, cardFields) {
       reset.disabled = false;
     }
   });
-  importing.append(element('h2', 'JSON 가져오기'),
+  importing.append(element('p', '02 / IMPORT', 'eyebrow'), element('h2', 'JSON 가져오기'),
     element('p', '검증 후 확인하면 현재 데이터를 덮어씁니다. 알 수 없는 필드는 무시합니다.', 'muted'),
     element('p', '길이 제한: 카드 항목 10,000자 · 자유 메모 50,000자 · 진로 판정 1,000자. 파일 최대 8MB.', 'muted'), label);
 
-  const clearing = element('section', undefined, 'panel info-panel');
+  const clearing = element('section', undefined, 'panel info-panel editorial-section settings-section');
   reset.addEventListener('click', () => {
     if (!window.confirm('모든 진도와 입력 내용, 백업·저장 시각을 삭제할까요? 되돌릴 수 없습니다.')) return;
     const cleared = resetState();
@@ -434,13 +469,13 @@ function renderSettings(main, cardFields) {
     status.textContent = cleared ? '전체 데이터를 초기화했습니다.'
       : '기기 저장소에서 삭제하지 못했습니다. 다시 시도해 주세요.';
   });
-  clearing.append(element('h2', '전체 초기화'), reset);
+  clearing.append(element('p', '03 / RESET', 'eyebrow'), element('h2', '전체 초기화'), reset);
   main.append(intro, exporting, importing, clearing, status);
 }
 
 function renderPlaceholder(title, description) {
   const section = element('section', undefined, 'panel placeholder');
-  section.append(element('h1', title), element('p', description, 'muted'), link('홈으로 돌아가기', '#/', 'button'));
+  section.append(element('p', 'ARCH 101', 'eyebrow'), element('h1', title), element('p', description, 'muted'), link('홈으로 돌아가기', '#/', 'button'));
   main.append(section);
 }
 
